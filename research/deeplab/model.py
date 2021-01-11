@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-r"""Provides DeepLab model definition and helper functions.
+"""Provides DeepLab model definition and helper functions.
 
 DeepLab is a deep learning system for semantic image segmentation with
 the following features:
@@ -68,6 +68,9 @@ CONCAT_PROJECTION_SCOPE = 'concat_projection'
 DECODER_SCOPE = 'decoder'
 META_ARCHITECTURE_SCOPE = 'meta_architecture'
 
+# my code is here
+RESIDUAL_REFINEMENT_SCOPE = 'residual_refinement'
+
 PROB_SUFFIX = '_prob'
 
 _resize_bilinear = utils.resize_bilinear
@@ -88,6 +91,7 @@ def get_extra_layer_scopes(last_layers_contain_logits_only=False):
   if last_layers_contain_logits_only:
     return [LOGITS_SCOPE_NAME]
   else:
+    # this is called
     return [
         LOGITS_SCOPE_NAME,
         IMAGE_POOLING_SCOPE,
@@ -95,13 +99,15 @@ def get_extra_layer_scopes(last_layers_contain_logits_only=False):
         CONCAT_PROJECTION_SCOPE,
         DECODER_SCOPE,
         META_ARCHITECTURE_SCOPE,
+        # my code is here
+        RESIDUAL_REFINEMENT_SCOPE,
     ]
 
 
 def predict_labels_multi_scale(images,
                                model_options,
                                eval_scales=(1.0,),
-                               add_flipped_images=False):
+                               add_flipped_images=False):                         
   """Predicts segmentation labels.
 
   Args:
@@ -596,11 +602,15 @@ def _get_logits(images,
         fine_tune_batch_norm=fine_tune_batch_norm,
         use_bounded_activation=model_options.use_bounded_activation)
 
+    # my code is here
+    features = residual_refinement_module(features)
+
   outputs_to_logits = {}
+
   for output in sorted(model_options.outputs_to_num_classes):
     if model_options.decoder_output_is_logits:
       outputs_to_logits[output] = tf.identity(features,
-                                              name=output)
+                                              name=output)                                      
     else:
       outputs_to_logits[output] = get_branch_logits(
           features,
@@ -690,6 +700,7 @@ def refine_by_decoder(features,
     activation_fn = tf.nn.relu6 if use_bounded_activation else tf.nn.relu
     normalizer_fn = batch_norm
     conv2d_kernel = 3
+
   with slim.arg_scope(
       [slim.conv2d, slim.separable_conv2d],
       weights_regularizer=slim.l2_regularizer(weight_decay),
@@ -700,19 +711,26 @@ def refine_by_decoder(features,
       reuse=reuse):
     with slim.arg_scope([batch_norm], **batch_norm_params):
       with tf.variable_scope(DECODER_SCOPE, DECODER_SCOPE, [features]):
+        # DECODER_SCOPE == 'decoder'
         decoder_features = features
         decoder_stage = 0
         scope_suffix = ''
         for output_stride in decoder_output_stride:
+          # decoder_output_stride == 4
+          # decoder stage is only one since 'decoder_output_stride' is a list
           feature_list = feature_extractor.networks_to_feature_maps[
               model_variant][
                   feature_extractor.DECODER_END_POINTS][output_stride]
+          # feature_list == 'entry_flow/block2/unit_1/xception_module/separable_conv2d_pointwise'
+        
           # If only one decoder stage, we do not change the scope name in
           # order for backward compactibility.
           if decoder_stage:
             scope_suffix = '_{}'.format(decoder_stage)
           for i, name in enumerate(feature_list):
             decoder_features_list = [decoder_features]
+            # decoder_features_list == 'concat_projection_dropout/dropout/mul_1:0'
+
             # MobileNet and NAS variants use different naming convention.
             if ('mobilenet' in model_variant or
                 model_variant.startswith('mnas') or
@@ -721,12 +739,16 @@ def refine_by_decoder(features,
             else:
               feature_name = '{}/{}'.format(
                   feature_extractor.name_scope[model_variant], name)
+
             decoder_features_list.append(
                 slim.conv2d(
                     end_points[feature_name],
                     projected_filters,
                     1,
                     scope='feature_projection' + str(i) + scope_suffix))
+            # 'decoder/feature_projection0/Relu:0' is added in decoder_features_list
+            # decoder_features_list has two features: low-level feature, decoder features
+
             # Determine the output size.
             decoder_height = scale_dimension(crop_size[0], 1.0 / output_stride)
             decoder_width = scale_dimension(crop_size[1], 1.0 / output_stride)
@@ -739,6 +761,7 @@ def refine_by_decoder(features,
               w = (None if isinstance(decoder_width, tf.Tensor)
                    else decoder_width)
               decoder_features_list[j].set_shape([None, h, w, None])
+
             if decoder_use_sum_merge:
               decoder_features = _decoder_with_sum_merge(
                   decoder_features_list,
@@ -748,6 +771,7 @@ def refine_by_decoder(features,
                   weight_decay=weight_decay,
                   scope_suffix=scope_suffix)
             else:
+              # this is called
               if not decoder_use_separable_conv:
                 scope_suffix = str(i) + scope_suffix
               decoder_features = _decoder_with_concat_merge(
@@ -756,8 +780,91 @@ def refine_by_decoder(features,
                   decoder_use_separable_conv=decoder_use_separable_conv,
                   weight_decay=weight_decay,
                   scope_suffix=scope_suffix)
+              # decoder_features == 
+              # Tensor("decoder/decoder_conv1_pointwise/Relu:0", shape=(?, 128, 128, 256), dtype=float32, device=/device:GPU:0)
           decoder_stage += 1
         return decoder_features
+
+
+# my code is here
+def residual_refinement_module(features,
+                               weight_decay=0.0001,
+                               reuse=None,
+                               is_training=False,
+                               fine_tune_batch_norm=False):
+    """Improve the boundary quality of the decoder output.
+
+    Args:
+        features: A tensor of size [batch, features_height, features_width, features_channels].
+        weight_decay: The weight decay for model variables.
+        reuse: Reuse the model variables or not.
+        is_training: Is training or not.
+        fine_tune_batch_norm: Fine-tune the batch norm parameters or not.
+
+    Returns:
+        RRM output with size [batch, rrm_height, rrm_width, rrm_channels].
+    """
+
+    batch_norm_params = {
+        'is_training': is_training and fine_tune_batch_norm,
+        'decay': 0.9997,
+        'epsilon': 1e-5,
+        'scale': True,
+    }
+
+    # 64 channels to 1 channel: BASNet
+    # 256 channels to 1 channel: DeepLab v3+
+    with slim.arg_scope(
+        [slim.conv2d],
+        weights_regularizer=slim.l2_regularizer(weight_decay),
+        activation_fn=tf.nn.relu,
+        normalizer_fn=slim.batch_norm,
+        normalizer_params=batch_norm_params,
+        padding='SAME',
+        kernel_size=3,
+        stride=1,
+        reuse=reuse):
+      with slim.arg_scope([slim.batch_norm], **batch_norm_params):
+        with tf.variable_scope(RESIDUAL_REFINEMENT_SCOPE, RESIDUAL_REFINEMENT_SCOPE, [features]):
+          # 64 channels to 1 channel: BASNet
+          # 256 channels to 1 channel: DeepLab v3+
+          x = slim.conv2d(inputs=features, num_outputs=1, scope='x')
+          # ------------ Encoder ------------
+          conv0_out = slim.conv2d(inputs=x, num_outputs=64, scope='conv0')
+          # stage 1
+          conv1_out = slim.conv2d(inputs=conv0_out, num_outputs=64, scope='conv1')
+          pool1_out = slim.max_pool2d(inputs=conv1_out, kernel_size=2, stride=2, scope='pool1')
+          # stage 2
+          conv2_out = slim.conv2d(inputs=pool1_out, num_outputs=64, scope='conv2')
+          pool2_out = slim.max_pool2d(inputs=conv2_out, kernel_size=2, stride=2, scope='pool2')
+          # stage 3
+          conv3_out = slim.conv2d(inputs=pool2_out, num_outputs=64, scope='conv3')
+          pool3_out = slim.max_pool2d(inputs=conv3_out, kernel_size=2, stride=2, scope='pool3')
+          # stage 4
+          conv4_out = slim.conv2d(inputs=pool3_out, num_outputs=64, scope='conv4')
+          pool4_out = slim.max_pool2d(inputs=conv4_out, kernel_size=2, stride=2, scope='pool4')
+          
+          #####
+          conv5_out = slim.conv2d(inputs=pool4_out, num_outputs=64, scope='conv5')
+          d5_out = tf.image.resize_bilinear(conv5_out, [2*conv5_out.shape[1], 2*conv5_out.shape[2]], align_corners=True)
+          #####
+
+          # ------------ Decoder ------------
+          # stage 1
+          conv_d4 = slim.conv2d(inputs=tf.concat([d5_out, conv4_out], 3), num_outputs=64, scope='conv_d4')
+          d4_out = tf.image.resize_bilinear(conv_d4, [2*conv_d4.shape[1], 2*conv_d4.shape[2]], align_corners=True)
+          # stage 2
+          conv_d3 = slim.conv2d(inputs=tf.concat([d4_out, conv3_out], 3), num_outputs=64, scope='conv_d3')
+          d3_out = tf.image.resize_bilinear(conv_d3, [2*conv_d3.shape[1], 2*conv_d3.shape[2]], align_corners=True)
+          # stage 3
+          conv_d2 = slim.conv2d(inputs=tf.concat([d3_out, conv2_out], 3), num_outputs=64, scope='conv_d2')
+          d2_out = tf.image.resize_bilinear(conv_d2, [2*conv_d2.shape[1], 2*conv_d2.shape[2]], align_corners=True)
+          # stage 4
+          conv_d1 = slim.conv2d(inputs=tf.concat([d2_out, conv1_out], 3), num_outputs=64, scope='conv_d1')
+
+          residual = slim.conv2d(inputs=conv_d1, num_outputs=1, scope='residual')
+
+          return x + residual
 
 
 def _decoder_with_sum_merge(decoder_features_list,
@@ -824,6 +931,7 @@ def _decoder_with_concat_merge(decoder_features_list,
     decoder features merged with concatenation.
   """
   if decoder_use_separable_conv:
+    # this is called
     decoder_features = split_separable_conv2d(
         tf.concat(decoder_features_list, 3),
         filters=decoder_depth,
