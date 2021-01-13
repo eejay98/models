@@ -603,7 +603,9 @@ def _get_logits(images,
         use_bounded_activation=model_options.use_bounded_activation)
 
     # my code is here
-    features = residual_refinement_module(features)
+    features = residual_refinement_module(
+                  features=features,
+                  num_classes=model_options.outputs_to_num_classes['semantic'])
 
   outputs_to_logits = {}
 
@@ -716,12 +718,9 @@ def refine_by_decoder(features,
         decoder_stage = 0
         scope_suffix = ''
         for output_stride in decoder_output_stride:
-          # decoder_output_stride == 4
-          # decoder stage is only one since 'decoder_output_stride' is a list
           feature_list = feature_extractor.networks_to_feature_maps[
               model_variant][
                   feature_extractor.DECODER_END_POINTS][output_stride]
-          # feature_list == 'entry_flow/block2/unit_1/xception_module/separable_conv2d_pointwise'
         
           # If only one decoder stage, we do not change the scope name in
           # order for backward compactibility.
@@ -746,8 +745,6 @@ def refine_by_decoder(features,
                     projected_filters,
                     1,
                     scope='feature_projection' + str(i) + scope_suffix))
-            # 'decoder/feature_projection0/Relu:0' is added in decoder_features_list
-            # decoder_features_list has two features: low-level feature, decoder features
 
             # Determine the output size.
             decoder_height = scale_dimension(crop_size[0], 1.0 / output_stride)
@@ -771,7 +768,6 @@ def refine_by_decoder(features,
                   weight_decay=weight_decay,
                   scope_suffix=scope_suffix)
             else:
-              # this is called
               if not decoder_use_separable_conv:
                 scope_suffix = str(i) + scope_suffix
               decoder_features = _decoder_with_concat_merge(
@@ -780,22 +776,23 @@ def refine_by_decoder(features,
                   decoder_use_separable_conv=decoder_use_separable_conv,
                   weight_decay=weight_decay,
                   scope_suffix=scope_suffix)
-              # decoder_features == 
-              # Tensor("decoder/decoder_conv1_pointwise/Relu:0", shape=(?, 128, 128, 256), dtype=float32, device=/device:GPU:0)
           decoder_stage += 1
         return decoder_features
 
 
 # my code is here
 def residual_refinement_module(features,
+                               num_classes,
                                weight_decay=0.0001,
                                reuse=None,
                                is_training=False,
                                fine_tune_batch_norm=False):
     """Improve the boundary quality of the decoder output.
+       This module is the residual refinement module in BASNet.
 
     Args:
         features: A tensor of size [batch, features_height, features_width, features_channels].
+        num_classes: Number of classes to predict.
         weight_decay: The weight decay for model variables.
         reuse: Reuse the model variables or not.
         is_training: Is training or not.
@@ -812,8 +809,6 @@ def residual_refinement_module(features,
         'scale': True,
     }
 
-    # 64 channels to 1 channel: BASNet
-    # 256 channels to 1 channel: DeepLab v3+
     with slim.arg_scope(
         [slim.conv2d],
         weights_regularizer=slim.l2_regularizer(weight_decay),
@@ -826,9 +821,7 @@ def residual_refinement_module(features,
         reuse=reuse):
       with slim.arg_scope([slim.batch_norm], **batch_norm_params):
         with tf.variable_scope(RESIDUAL_REFINEMENT_SCOPE, RESIDUAL_REFINEMENT_SCOPE, [features]):
-          # 64 channels to 1 channel: BASNet
-          # 256 channels to 1 channel: DeepLab v3+
-          x = slim.conv2d(inputs=features, num_outputs=1, scope='x')
+          x = slim.conv2d(inputs=features, num_outputs=num_classes, scope='x')
           # ------------ Encoder ------------
           conv0_out = slim.conv2d(inputs=x, num_outputs=64, scope='conv0')
           # stage 1
@@ -862,7 +855,7 @@ def residual_refinement_module(features,
           # stage 4
           conv_d1 = slim.conv2d(inputs=tf.concat([d2_out, conv1_out], 3), num_outputs=64, scope='conv_d1')
 
-          residual = slim.conv2d(inputs=conv_d1, num_outputs=1, scope='residual')
+          residual = slim.conv2d(inputs=conv_d1, num_outputs=num_classes, scope='residual')
 
           return x + residual
 
