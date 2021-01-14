@@ -23,7 +23,7 @@
 
 #### Modified Structure
 
-<center><img src="./img/rrm_ver2_structure.PNG"></center>
+![rrm_structure](./img/rrm_ver2_structure.PNG)
 
 RRM input: output of DeepLab v3+ decoder
 
@@ -32,7 +32,7 @@ RRM output: logits
 
 #### Training from scratch
 
-<center><img src="./img/rrm_ver2_loss.PNG"></center>
+![rrm_loss](./img/rrm_ver2_loss.PNG)
 
 Need more time?
 
