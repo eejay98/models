@@ -21,11 +21,18 @@
 
 ### 3-2. Naïve approach (using original loss function)
 
-Modified Structure
-![rrm_structure](./img/rrm_ver2_structure.PNG)
+#### Modified Structure
+
+<center><img src="./img/rrm_ver2_structure.PNG"></center>
 
 RRM input: output of DeepLab v3+ decoder
 
 RRM output: logits
 
-Ongoing: Training from scratch
+
+#### Training from scratch
+
+<center><img src="./img/rrm_ver2_loss.PNG"></center>
+
+Need more time?
+
