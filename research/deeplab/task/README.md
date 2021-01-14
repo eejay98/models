@@ -25,7 +25,7 @@
 
 ![rrm_structure](./img/rrm_ver2_structure.PNG)
 
-RRM input: output of DeepLab v3+ decoder
+RRM  input: output of DeepLab v3+ decoder
 
 RRM output: logits
 
@@ -34,5 +34,28 @@ RRM output: logits
 
 ![rrm_loss](./img/rrm_ver2_loss.PNG)
 
-Need more time?
+Dataset: PASCAL VOC 2012 semantic segmentation dataset.
+
+
+```bash
+python deeplab/train.py \
+  --logtostderr \
+  --train_split="trainval" \
+  --model_variant="xception_65" \
+  --atrous_rates=6 \
+  --atrous_rates=12 \
+  --atrous_rates=18 \
+  --output_stride=16 \
+  --decoder_output_stride=4 \
+  --train_crop_size=512,512 \
+  --train_batch_size=4 \
+  --training_number_of_steps="500000" \
+  --fine_tune_batch_norm=true \
+  --train_logdir="/home/jaykim/models/research/deeplab/datasets/pascal_voc_seg/exp/train_on_trainval_set/train_rrm_0114" \
+  --dataset_dir="/home/jaykim/models/research/deeplab/datasets/pascal_voc_seg/tfrecord" \
+  --decoder_output_is_logits=true
+```
+
+
+Not optimal.. Need more time?
 
