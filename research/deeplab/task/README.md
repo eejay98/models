@@ -16,3 +16,16 @@
     - Training the modified DeepLab v3+ from the scratch with hybrid-loss function.
     - Selecting features for achieving the performance improvement....
 
+
+## Progress
+
+### 3-2. Naïve approach (using original loss function)
+
+Modified Structure
+![rrm_structure](./img/rrm_ver2_structure.PNG)
+
+RRM input: output of DeepLab v3+ decoder
+
+RRM output: logits
+
+Ongoing: Training from scratch
