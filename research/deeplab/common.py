@@ -151,6 +151,11 @@ flags.DEFINE_multi_float(
 
 flags.DEFINE_float('batch_norm_decay', 0.9997, 'Batchnorm decay.')
 
+# my code is here
+# BASNet RRM setting.
+flags.DEFINE_boolean('use_rrm', False,
+                     'Use resiudual refinement module or not.')
+
 FLAGS = flags.FLAGS
 
 # Constants
@@ -205,6 +210,8 @@ class ModelOptions(
         'label_weights',
         'sync_batch_norm_method',
         'batch_norm_decay',
+        # my code is here
+        'use_rrm',
     ])):
   """Immutable class to hold model options."""
 
@@ -285,7 +292,9 @@ class ModelOptions(
         FLAGS.image_se_uses_qsigmoid,
         label_weights,
         'None',
-        FLAGS.batch_norm_decay)
+        FLAGS.batch_norm_decay,
+        # my code is here
+        FLAGS.use_rrm)
 
   def __deepcopy__(self, memo):
     return ModelOptions(copy.deepcopy(self.outputs_to_num_classes),

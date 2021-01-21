@@ -90,8 +90,8 @@ def get_extra_layer_scopes(last_layers_contain_logits_only=False):
   """
   if last_layers_contain_logits_only:
     return [LOGITS_SCOPE_NAME]
-  else:
-    # this is called
+  # my code is here
+  elif model_options.use_rrm:
     return [
         LOGITS_SCOPE_NAME,
         IMAGE_POOLING_SCOPE,
@@ -99,8 +99,16 @@ def get_extra_layer_scopes(last_layers_contain_logits_only=False):
         CONCAT_PROJECTION_SCOPE,
         DECODER_SCOPE,
         META_ARCHITECTURE_SCOPE,
-        # my code is here
         RESIDUAL_REFINEMENT_SCOPE,
+    ]
+  else:
+    return [
+        LOGITS_SCOPE_NAME,
+        IMAGE_POOLING_SCOPE,
+        ASPP_SCOPE,
+        CONCAT_PROJECTION_SCOPE,
+        DECODER_SCOPE,
+        META_ARCHITECTURE_SCOPE,
     ]
 
 
@@ -603,9 +611,11 @@ def _get_logits(images,
         use_bounded_activation=model_options.use_bounded_activation)
 
     # my code is here
-    features = residual_refinement_module(
-                  features=features,
-                  num_classes=model_options.outputs_to_num_classes['semantic'])
+    if model_options.use_rrm:
+      features = residual_refinement_module(
+                    features=features,
+                    #num_classes=model_options.outputs_to_num_classes['semantic']
+                    num_classes=2)
 
   outputs_to_logits = {}
 

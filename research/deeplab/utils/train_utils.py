@@ -39,7 +39,9 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
                                                   hard_example_mining_step=0,
                                                   top_k_percent_pixels=1.0,
                                                   gt_is_matting_map=False,
-                                                  scope=None):
+                                                  scope=None,
+                                                  # my code is here
+                                                  use_hybrid_loss=False):
   """Adds softmax cross entropy loss for logits of each scale.
 
   Args:
@@ -108,6 +110,10 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
           preprocess_utils.resolve_shape(logits, 4)[1:3],
           align_corners=True)
 
+    # my code is here
+    logits_not_reshaped = logits        # (?, 512, 512, 21)
+    labels_not_reshaped = scaled_labels # (?, 512, 512, 1)
+
     scaled_labels = tf.reshape(scaled_labels, shape=[-1])
     weights = utils.get_label_weight_mask(
         scaled_labels, ignore_label, num_classes, label_weights=loss_weight)
@@ -137,18 +143,54 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
     else:
       train_labels = tf.one_hot(
           scaled_labels, num_classes, on_value=1.0, off_value=0.0)
-
+    
     default_loss_scope = ('softmax_all_pixel_loss'
                           if top_k_percent_pixels == 1.0 else
                           'softmax_hard_example_mining')
     with tf.name_scope(loss_scope, default_loss_scope,
                        [logits, train_labels, weights]):
       # Compute the loss for all pixels.
-      pixel_losses = tf.nn.softmax_cross_entropy_with_logits_v2(
-          labels=tf.stop_gradient(
-              train_labels, name='train_labels_stop_gradient'),
-          logits=logits,
-          name='pixel_losses')
+      # my code is here
+      if not use_hybrid_loss:
+        pixel_losses = tf.nn.softmax_cross_entropy_with_logits_v2(
+            labels=tf.stop_gradient(
+                train_labels, name='train_labels_stop_gradient'),
+            logits=logits,
+            name='pixel_losses')
+
+      # my code is here -------------------
+      # TODO(Jaehee): replace 'softmax_cross_entropy_with_logits_v2' to hybrid-loss
+      else:
+        cce_losses = tf.nn.softmax_cross_entropy_with_logits_v2(
+            labels=tf.stop_gradient(
+                train_labels, name='train_labels_stop_gradient'),
+            logits=logits,
+            name='pixel_losses')
+
+        print('##################')
+        print('##################')
+        print('##################')
+        print(cce_losses)
+
+        ssim_losses = tf.image.ssim(
+            img1=logits, img2=train_labels,
+            max_val=255, filter_size=11, filter_sigma=1.5, k1=0.01, k2=0.03)
+
+        print('##################')
+        print('##################')
+        print('##################')
+        print(ssim_losses)          
+        
+        iou_losses = iou_loss(logits, labels)
+
+        print('##################')
+        print('##################')
+        print('##################')
+        print(iou_losses)
+
+        pixel_losses = cce_losses + ssim_losses + iou_losses
+      # -----------------------------------
+        
       weighted_pixel_losses = tf.multiply(pixel_losses, weights)
 
       if top_k_percent_pixels == 1.0:
@@ -177,6 +219,23 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
             tf.to_float(tf.not_equal(top_k_losses, 0.0)))
         loss = _div_maybe_zero(total_loss, num_present)
         tf.losses.add_loss(loss)
+
+
+# my code is here -------------------
+def iou_loss(pred, target):
+    batch_size = pred.shape[0]
+    IoU = 0.0
+
+    for i in range(0, batch_size):
+        # compute the IoU of the foreground
+        Iand1 = tf.reduce_sum(target[i, :, :, :] * pred[i, :, :, :])
+        Ior1  = tf.reduce_sum(target[i, :, :, :]) + tf.reduce_sum(pred[i, :, :, :]) - Iand1
+        IoU1  = Iand1 / Ior1
+
+        IoU = IoU + (1 - IoU1)
+
+    return IoU / tf.constant(batch_size, dtype=tf.float32)
+# -----------------------------------
 
 
 def get_model_init_fn(train_logdir,

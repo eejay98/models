@@ -31,6 +31,11 @@ from deeplab.datasets import data_generator
 from deeplab.utils import train_utils
 from deployment import model_deploy
 
+# my code is here
+import os
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+
 slim = tf.contrib.slim
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -217,6 +222,14 @@ flags.DEFINE_string('train_split', 'train',
 
 flags.DEFINE_string('dataset_dir', None, 'Where the dataset reside.')
 
+# my code is here
+# BASNet settings.
+flags.DEFINE_boolean('use_hybrid_loss', False,
+                     'Use boundary-aware hybrid-loss or not.')
+
+flags.DEFINE_boolean('is_salient', False,
+                     'Task is the salient object segmentation or not.')
+
 
 def _build_deeplab(iterator, outputs_to_num_classes, ignore_label):
   """Builds a clone of DeepLab.
@@ -267,7 +280,9 @@ def _build_deeplab(iterator, outputs_to_num_classes, ignore_label):
         upsample_logits=FLAGS.upsample_logits,
         hard_example_mining_step=FLAGS.hard_example_mining_step,
         top_k_percent_pixels=FLAGS.top_k_percent_pixels,
-        scope=output)
+        scope=output,
+        # my code is here
+        use_hybrid_loss=FLAGS.use_hybrid_loss)
 
 
 def main(unused_argv):
@@ -307,7 +322,9 @@ def main(unused_argv):
           num_readers=4,
           is_training=True,
           should_shuffle=True,
-          should_repeat=True)
+          should_repeat=True,
+          # my code is here
+          is_salient=FLAGS.is_salient)
 
     # Create the global step on the device storing the variables.
     with tf.device(config.variables_device()):
@@ -426,6 +443,10 @@ def main(unused_argv):
     # Soft placement allows placing on CPU ops without GPU implementation.
     session_config = tf.ConfigProto(
         allow_soft_placement=True, log_device_placement=False)
+      
+    # my code is here
+    # allocate the fraction of GPU memory
+    # session_config.gpu_options.per_process_gpu_memory_fraction = 0.4
 
     # Start the training.
     profile_dir = FLAGS.profile_logdir

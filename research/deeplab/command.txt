@@ -1,0 +1,60 @@
+# Running the train/eval/vis jobs
+
+# From tensorflow/models/research/
+
+# RRM -> remove the checkpoint
+python deeplab/train.py \
+  --logtostderr \
+  --train_split="train_aug" \
+  --model_variant="xception_65" \
+  --atrous_rates=6 \
+  --atrous_rates=12 \
+  --atrous_rates=18 \
+  --output_stride=16 \
+  --decoder_output_stride=4 \
+  --train_crop_size=224,224 \
+  --train_batch_size=4 \
+  --training_number_of_steps="500000" \
+  --fine_tune_batch_norm=true \
+  --train_logdir="/home/jaykim/models/research/deeplab/experiment/DUTS/train_duts_0120" \
+  --dataset_dir="/data/jaykim/DUTS/DUTS_TR_hflip_TFRecords" \
+  --decoder_output_is_logits=false \
+  --use_hybrid_loss=false \
+  --use_rrm=false \
+  --base_learning_rate=0.001
+
+# flag stack
+  --train_split="trainval" \
+  --dataset_dir="/home/jaykim/models/research/deeplab/datasets/pascal_voc_seg/tfrecord" \
+  --train_logdir="/home/jaykim/models/research/deeplab/datasets/pascal_voc_seg/exp/train_on_trainval_set/train_duts_0120" \
+  --train_crop_size=512,512 \
+
+python deeplab/eval.py \
+  --logtostderr \
+  --eval_split="val" \
+  --model_variant="xception_65" \
+  --atrous_rates=6 \
+  --atrous_rates=12 \
+  --atrous_rates=18 \
+  --output_stride=16 \
+  --decoder_output_stride=4 \
+  --eval_crop_size=512,512 \
+  --checkpoint_dir="/home/jaykim/models/research/deeplab/datasets/pascal_voc_seg/exp/train_on_trainval_set/train_rrm_0108" \
+  --eval_logdir="/home/jaykim/models/research/deeplab/datasets/pascal_voc_seg/exp/train_on_trainval_set/eval_rrm_0108" \
+  --dataset_dir="/home/jaykim/models/research/deeplab/datasets/pascal_voc_seg/tfrecord" \
+  --max_number_of_evaluations=1
+
+python deeplab/vis.py \
+  --logtostderr \
+  --vis_split="val" \
+  --model_variant="xception_65" \
+  --atrous_rates=6 \
+  --atrous_rates=12 \
+  --atrous_rates=18 \
+  --output_stride=16 \
+  --decoder_output_stride=4 \
+  --vis_crop_size=512,512 \
+  --checkpoint_dir="/home/jaykim/models/research/deeplab/datasets/pascal_voc_seg/exp/train_on_trainval_set/train_rrm" \
+  --vis_logdir="/home/jaykim/models/research/deeplab/datasets/pascal_voc_seg/exp/train_on_trainval_set/vis_rrm" \
+  --dataset_dir="/home/jaykim/models/research/deeplab/datasets/pascal_voc_seg/tfrecord" \
+  --max_number_of_iterations=1

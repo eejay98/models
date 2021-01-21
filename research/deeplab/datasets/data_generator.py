@@ -99,10 +99,23 @@ _ADE20K_INFORMATION = DatasetDescriptor(
     ignore_label=0,
 )
 
+# my code is here
+_DUTS_INFORMATION = DatasetDescriptor(
+    splits_to_sizes={
+        'train': 10553,
+        'train_aug': 21106, # including horizontal-flipped data
+        'test': 5019,
+    },
+    num_classes=2,
+    ignore_label=255,
+)
+
 _DATASETS_INFORMATION = {
     'cityscapes': _CITYSCAPES_INFORMATION,
     'pascal_voc_seg': _PASCAL_VOC_SEG_INFORMATION,
     'ade20k': _ADE20K_INFORMATION,
+    # my code is here
+    'duts': _DUTS_INFORMATION,
 }
 
 # Default file pattern of TFRecord of TensorFlow Example.
@@ -132,7 +145,9 @@ class Dataset(object):
                num_readers=1,
                is_training=False,
                should_shuffle=False,
-               should_repeat=False):
+               should_repeat=False,
+               # my code is here
+               is_salient=False):
     """Initializes the dataset.
 
     Args:
@@ -189,6 +204,8 @@ class Dataset(object):
     self.is_training = is_training
     self.should_shuffle = should_shuffle
     self.should_repeat = should_repeat
+    # my code is here
+    self.is_salient = is_salient
 
     self.num_of_classes = _DATASETS_INFORMATION[self.dataset_name].num_classes
     self.ignore_label = _DATASETS_INFORMATION[self.dataset_name].ignore_label
@@ -296,7 +313,9 @@ class Dataset(object):
         scale_factor_step_size=self.scale_factor_step_size,
         ignore_label=self.ignore_label,
         is_training=self.is_training,
-        model_variant=self.model_variant)
+        model_variant=self.model_variant,
+        # my code is here
+        is_salient=self.is_salient)
 
     sample[common.IMAGE] = image
 
