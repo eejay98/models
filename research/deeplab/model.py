@@ -78,7 +78,8 @@ scale_dimension = utils.scale_dimension
 split_separable_conv2d = utils.split_separable_conv2d
 
 
-def get_extra_layer_scopes(last_layers_contain_logits_only=False):
+def get_extra_layer_scopes(last_layers_contain_logits_only=False,
+                           use_rrm=False):
   """Gets the scopes for extra layers.
 
   Args:
@@ -91,7 +92,7 @@ def get_extra_layer_scopes(last_layers_contain_logits_only=False):
   if last_layers_contain_logits_only:
     return [LOGITS_SCOPE_NAME]
   # my code is here
-  elif model_options.use_rrm:
+  elif use_rrm:
     return [
         LOGITS_SCOPE_NAME,
         IMAGE_POOLING_SCOPE,
@@ -612,10 +613,13 @@ def _get_logits(images,
 
     # my code is here
     if model_options.use_rrm:
+      features = _resize_bilinear(
+                    features,
+                    tf.convert_to_tensor(crop_size, dtype=tf.int32))
+
       features = residual_refinement_module(
                     features=features,
-                    #num_classes=model_options.outputs_to_num_classes['semantic']
-                    num_classes=2)
+                    num_classes=model_options.outputs_to_num_classes['semantic'])
 
   outputs_to_logits = {}
 
@@ -723,7 +727,6 @@ def refine_by_decoder(features,
       reuse=reuse):
     with slim.arg_scope([batch_norm], **batch_norm_params):
       with tf.variable_scope(DECODER_SCOPE, DECODER_SCOPE, [features]):
-        # DECODER_SCOPE == 'decoder'
         decoder_features = features
         decoder_stage = 0
         scope_suffix = ''
@@ -835,20 +838,20 @@ def residual_refinement_module(features,
           # ------------ Encoder ------------
           conv0_out = slim.conv2d(inputs=x, num_outputs=64, scope='conv0')
           # stage 1
-          conv1_out = slim.conv2d(inputs=conv0_out, num_outputs=64, scope='conv1')
+          conv1_out = slim.conv2d(inputs=conv0_out, num_outputs=64, scope='conv1') # 224x224
           pool1_out = slim.max_pool2d(inputs=conv1_out, kernel_size=2, stride=2, scope='pool1')
           # stage 2
-          conv2_out = slim.conv2d(inputs=pool1_out, num_outputs=64, scope='conv2')
+          conv2_out = slim.conv2d(inputs=pool1_out, num_outputs=64, scope='conv2') # 112x112
           pool2_out = slim.max_pool2d(inputs=conv2_out, kernel_size=2, stride=2, scope='pool2')
           # stage 3
-          conv3_out = slim.conv2d(inputs=pool2_out, num_outputs=64, scope='conv3')
+          conv3_out = slim.conv2d(inputs=pool2_out, num_outputs=64, scope='conv3') # 56x56
           pool3_out = slim.max_pool2d(inputs=conv3_out, kernel_size=2, stride=2, scope='pool3')
           # stage 4
-          conv4_out = slim.conv2d(inputs=pool3_out, num_outputs=64, scope='conv4')
+          conv4_out = slim.conv2d(inputs=pool3_out, num_outputs=64, scope='conv4') # 28x28
           pool4_out = slim.max_pool2d(inputs=conv4_out, kernel_size=2, stride=2, scope='pool4')
           
           #####
-          conv5_out = slim.conv2d(inputs=pool4_out, num_outputs=64, scope='conv5')
+          conv5_out = slim.conv2d(inputs=pool4_out, num_outputs=64, scope='conv5') # 14x14
           d5_out = tf.image.resize_bilinear(conv5_out, [2*conv5_out.shape[1], 2*conv5_out.shape[2]], align_corners=True)
           #####
 

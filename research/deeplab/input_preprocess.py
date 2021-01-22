@@ -24,7 +24,6 @@ from deeplab.core import preprocess_utils
 # left-right during training
 _PROB_OF_FLIP = 0.5
 
-# TODO: add the argument for preprocessing DUTS dataset.
 def preprocess_image_and_label(image,
                                label,
                                crop_height,
@@ -81,14 +80,14 @@ def preprocess_image_and_label(image,
 
   processed_image = tf.cast(image, tf.float32)
 
-  if label is not None:
-    label = tf.cast(label, tf.int32)
-  
   # Original labels consist of 0 and 255.
   # Converting 255 to 1.
   # my code is here
-  if is_salient:
+  if label is not None and is_salient:
     label = label / 255
+
+  if label is not None:
+    label = tf.cast(label, tf.int32)
 
   # Resize image and label to the desired range.
   if min_resize_value or max_resize_value:
@@ -133,7 +132,7 @@ def preprocess_image_and_label(image,
   if is_training and label is not None:
     processed_image, label = preprocess_utils.random_crop(
         [processed_image, label], crop_height, crop_width)
-
+    
   processed_image.set_shape([crop_height, crop_width, 3])
 
   if label is not None:

@@ -1,0 +1,72 @@
+# Running the train/eval/vis jobs
+
+# From tensorflow/models/research/
+
+# RRM -> remove the checkpoint
+python deeplab/train.py \
+  --logtostderr \
+  --train_split="train_aug" \
+  --model_variant="xception_65" \
+  --atrous_rates=6 \
+  --atrous_rates=12 \
+  --atrous_rates=18 \
+  --output_stride=16 \
+  --decoder_output_stride=8 \
+  --train_crop_size=224,224 \
+  --train_batch_size=1 \
+  --training_number_of_steps="10000" \
+  --fine_tune_batch_norm=false \
+  --train_logdir="/home/eejay/models/research/deeplab/experiment/DUTS/train_rrm_duts_0123" \
+  --dataset_dir="/home/eejay/models/research/deeplab/datasets/DUTS/DUTS_TR_hflip_TFRecords" \
+  --decoder_output_is_logits=true \
+  --use_hybrid_loss=false \
+  --use_rrm=true \
+  --optimizer="adam" \
+  --adam_learning_rate=0.001 \
+  --is_salient=true \
+  --dataset="duts"
+
+# flag stack
+  --train_split="trainval" \
+  --dataset_dir="/home/jaykim/models/research/deeplab/datasets/pascal_voc_seg/tfrecord" \
+  --train_logdir="/home/jaykim/models/research/deeplab/datasets/pascal_voc_seg/exp/train_on_trainval_set/train_duts_0120" \
+  --train_crop_size=512,512 \
+  --fine_tune_batch_norm=true \
+
+python deeplab/eval.py \
+  --logtostderr \
+  --eval_split="val" \
+  --model_variant="xception_65" \
+  --atrous_rates=6 \
+  --atrous_rates=12 \
+  --atrous_rates=18 \
+  --output_stride=16 \
+  --decoder_output_stride=8 \
+  --decoder_output_is_logits=true \
+  --use_rrm=true \
+  --is_salient=true \
+  --eval_crop_size=303,401 \
+  --checkpoint_dir="/home/eejay/models/research/deeplab/experiment/DUTS/train_rrm_duts_0122" \
+  --eval_logdir="/home/eejay/models/research/deeplab/experiment/DUTS/eval_0122" \
+  --dataset_dir="/home/eejay/models/research/deeplab/datasets/DUTS/DUTS_TE_TFRecords" \
+  --max_number_of_evaluations=1 \
+  --dataset="duts"
+
+python deeplab/vis.py \
+  --logtostderr \
+  --vis_split="val" \
+  --model_variant="xception_65" \
+  --atrous_rates=6 \
+  --atrous_rates=12 \
+  --atrous_rates=18 \
+  --output_stride=16 \
+  --decoder_output_stride=8 \
+  --decoder_output_is_logits=true \
+  --use_rrm=true \
+  --is_salient=true \
+  --vis_crop_size=224,224 \
+  --checkpoint_dir="/home/eejay/models/research/deeplab/experiment/DUTS/train_rrm_duts_0122" \
+  --vis_logdir="/home/eejay/models/research/deeplab/experiment/DUTS/vis_0122" \
+  --dataset_dir="/home/eejay/models/research/deeplab/datasets/DUTS/DUTS_TE_TFRecords" \
+  --max_number_of_iterations=1 \
+  --dataset="duts"

@@ -32,7 +32,7 @@ from deeplab.datasets import data_generator
 # my code is here
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "6"
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS

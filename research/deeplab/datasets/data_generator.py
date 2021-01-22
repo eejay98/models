@@ -104,7 +104,7 @@ _DUTS_INFORMATION = DatasetDescriptor(
     splits_to_sizes={
         'train': 10553,
         'train_aug': 21106, # including horizontal-flipped data
-        'test': 5019,
+        'val': 5019,
     },
     num_classes=2,
     ignore_label=255,

@@ -34,7 +34,7 @@ from deployment import model_deploy
 # my code is here
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+os.environ["CUDA_VISIBLE_DEVICES"] = "6"
 
 slim = tf.contrib.slim
 flags = tf.app.flags
@@ -417,7 +417,7 @@ def main(unused_argv):
 
       # Modify the gradients for biases and last layer variables.
       last_layers = model.get_extra_layer_scopes(
-          FLAGS.last_layers_contain_logits_only)
+          FLAGS.use_rrm, FLAGS.last_layers_contain_logits_only)
       grad_mult = train_utils.get_model_gradient_multipliers(
           last_layers, FLAGS.last_layer_gradient_multiplier)
       if grad_mult:
@@ -446,7 +446,7 @@ def main(unused_argv):
       
     # my code is here
     # allocate the fraction of GPU memory
-    # session_config.gpu_options.per_process_gpu_memory_fraction = 0.4
+    session_config.gpu_options.per_process_gpu_memory_fraction = 0.5
 
     # Start the training.
     profile_dir = FLAGS.profile_logdir

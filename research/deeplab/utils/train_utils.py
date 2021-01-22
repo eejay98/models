@@ -114,6 +114,12 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
     logits_not_reshaped = logits        # (?, 512, 512, 21)
     labels_not_reshaped = scaled_labels # (?, 512, 512, 1)
 
+    print('#######################')
+    print('#######################')
+    print('#######################')
+    print('logits:', logits_not_reshaped)
+    print('labels:', labels_not_reshaped)
+
     scaled_labels = tf.reshape(scaled_labels, shape=[-1])
     weights = utils.get_label_weight_mask(
         scaled_labels, ignore_label, num_classes, label_weights=loss_weight)
