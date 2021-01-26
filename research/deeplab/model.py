@@ -838,33 +838,33 @@ def residual_refinement_module(features,
           # ------------ Encoder ------------
           conv0_out = slim.conv2d(inputs=x, num_outputs=64, scope='conv0')
           # stage 1
-          conv1_out = slim.conv2d(inputs=conv0_out, num_outputs=64, scope='conv1') # 224x224
+          conv1_out = slim.conv2d(inputs=conv0_out, num_outputs=64, scope='conv1')
           pool1_out = slim.max_pool2d(inputs=conv1_out, kernel_size=2, stride=2, scope='pool1')
           # stage 2
-          conv2_out = slim.conv2d(inputs=pool1_out, num_outputs=64, scope='conv2') # 112x112
+          conv2_out = slim.conv2d(inputs=pool1_out, num_outputs=64, scope='conv2')
           pool2_out = slim.max_pool2d(inputs=conv2_out, kernel_size=2, stride=2, scope='pool2')
           # stage 3
-          conv3_out = slim.conv2d(inputs=pool2_out, num_outputs=64, scope='conv3') # 56x56
+          conv3_out = slim.conv2d(inputs=pool2_out, num_outputs=64, scope='conv3')
           pool3_out = slim.max_pool2d(inputs=conv3_out, kernel_size=2, stride=2, scope='pool3')
           # stage 4
-          conv4_out = slim.conv2d(inputs=pool3_out, num_outputs=64, scope='conv4') # 28x28
+          conv4_out = slim.conv2d(inputs=pool3_out, num_outputs=64, scope='conv4')
           pool4_out = slim.max_pool2d(inputs=conv4_out, kernel_size=2, stride=2, scope='pool4')
           
           #####
-          conv5_out = slim.conv2d(inputs=pool4_out, num_outputs=64, scope='conv5') # 14x14
-          d5_out = tf.image.resize_bilinear(conv5_out, [2*conv5_out.shape[1], 2*conv5_out.shape[2]], align_corners=True)
+          conv5_out = slim.conv2d(inputs=pool4_out, num_outputs=64, scope='conv5')
+          d5_out = tf.image.resize_bilinear(conv5_out, [conv4_out.shape[1], conv4_out.shape[2]], align_corners=True)
           #####
 
           # ------------ Decoder ------------
           # stage 1
           conv_d4 = slim.conv2d(inputs=tf.concat([d5_out, conv4_out], 3), num_outputs=64, scope='conv_d4')
-          d4_out = tf.image.resize_bilinear(conv_d4, [2*conv_d4.shape[1], 2*conv_d4.shape[2]], align_corners=True)
+          d4_out = tf.image.resize_bilinear(conv_d4, [conv3_out.shape[1], conv3_out.shape[2]], align_corners=True)
           # stage 2
           conv_d3 = slim.conv2d(inputs=tf.concat([d4_out, conv3_out], 3), num_outputs=64, scope='conv_d3')
-          d3_out = tf.image.resize_bilinear(conv_d3, [2*conv_d3.shape[1], 2*conv_d3.shape[2]], align_corners=True)
+          d3_out = tf.image.resize_bilinear(conv_d3, [conv2_out.shape[1], conv2_out.shape[2]], align_corners=True)
           # stage 3
           conv_d2 = slim.conv2d(inputs=tf.concat([d3_out, conv2_out], 3), num_outputs=64, scope='conv_d2')
-          d2_out = tf.image.resize_bilinear(conv_d2, [2*conv_d2.shape[1], 2*conv_d2.shape[2]], align_corners=True)
+          d2_out = tf.image.resize_bilinear(conv_d2, [conv1_out.shape[1], conv1_out.shape[2]], align_corners=True)
           # stage 4
           conv_d1 = slim.conv2d(inputs=tf.concat([d2_out, conv1_out], 3), num_outputs=64, scope='conv_d1')
 

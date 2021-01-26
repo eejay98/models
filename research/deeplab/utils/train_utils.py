@@ -111,14 +111,10 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
           align_corners=True)
 
     # my code is here
-    logits_not_reshaped = logits        # (?, 512, 512, 21)
-    labels_not_reshaped = scaled_labels # (?, 512, 512, 1)
-
-    print('#######################')
-    print('#######################')
-    print('#######################')
-    print('logits:', logits_not_reshaped)
-    print('labels:', labels_not_reshaped)
+    logits_not_reshaped = logits        # (?, height, width, 2)
+    logits_height = tf.shape(logits_not_reshaped)[1]
+    logits_width = tf.shape(logits_not_reshaped)[2]
+    # labels_not_reshaped = scaled_labels # (?, height, width, 1)
 
     scaled_labels = tf.reshape(scaled_labels, shape=[-1])
     weights = utils.get_label_weight_mask(
@@ -149,6 +145,10 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
     else:
       train_labels = tf.one_hot(
           scaled_labels, num_classes, on_value=1.0, off_value=0.0)
+      # my code is here
+      labels_not_reshaped = tf.reshape(
+                                train_labels,
+                                shape=[-1, logits_height, logits_width, num_classes])
     
     default_loss_scope = ('softmax_all_pixel_loss'
                           if top_k_percent_pixels == 1.0 else
@@ -158,46 +158,39 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
       # Compute the loss for all pixels.
       # my code is here
       if not use_hybrid_loss:
-        pixel_losses = tf.nn.softmax_cross_entropy_with_logits_v2(
-            labels=tf.stop_gradient(
-                train_labels, name='train_labels_stop_gradient'),
+        # pixel_losses = tf.nn.softmax_cross_entropy_with_logits_v2(
+        #     labels=tf.stop_gradient(
+        #         train_labels, name='train_labels_stop_gradient'),
+        #     logits=logits,
+        #     name='pixel_losses')
+
+        pixel_losses = tf.nn.sigmoid_cross_entropy_with_logits(
+            labels=train_labels,
             logits=logits,
             name='pixel_losses')
 
       # my code is here -------------------
-      # TODO(Jaehee): replace 'softmax_cross_entropy_with_logits_v2' to hybrid-loss
       else:
-        cce_losses = tf.nn.softmax_cross_entropy_with_logits_v2(
+        # boundary-aware hybrid-loss: BCE + SSIM + IOU losses
+        tf.logging.info('Using Boundary-aware Hybrid-loss.')
+        bce_losses = tf.nn.sigmoid_cross_entropy_with_logits(
             labels=tf.stop_gradient(
                 train_labels, name='train_labels_stop_gradient'),
             logits=logits,
             name='pixel_losses')
 
-        print('##################')
-        print('##################')
-        print('##################')
-        print(cce_losses)
-
         ssim_losses = tf.image.ssim(
-            img1=logits, img2=train_labels,
-            max_val=255, filter_size=11, filter_sigma=1.5, k1=0.01, k2=0.03)
-
-        print('##################')
-        print('##################')
-        print('##################')
-        print(ssim_losses)          
+            img1=logits_not_reshaped, img2=labels_not_reshaped,
+            max_val=1.0, filter_size=11, filter_sigma=1.5, k1=0.01, k2=0.03)
         
-        iou_losses = iou_loss(logits, labels)
+        # iou_losses = iou_loss(logits_not_reshaped, labels_not_reshaped)
 
-        print('##################')
-        print('##################')
-        print('##################')
-        print(iou_losses)
-
-        pixel_losses = cce_losses + ssim_losses + iou_losses
+        # pixel_losses = bce_losses + ssim_losses + iou_losses
+        pixel_losses = bce_losses + ssim_losses
       # -----------------------------------
         
-      weighted_pixel_losses = tf.multiply(pixel_losses, weights)
+      # weighted_pixel_losses = tf.multiply(pixel_losses, weights)
+      weighted_pixel_losses = pixel_losses
 
       if top_k_percent_pixels == 1.0:
         total_loss = tf.reduce_sum(weighted_pixel_losses)
@@ -229,7 +222,7 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
 
 # my code is here -------------------
 def iou_loss(pred, target):
-    batch_size = pred.shape[0]
+    batch_size = pred.get_shape()[0]
     IoU = 0.0
 
     for i in range(0, batch_size):
