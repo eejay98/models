@@ -22,6 +22,9 @@ from tensorflow.contrib import framework as contrib_framework
 from deeplab.core import preprocess_utils
 from deeplab.core import utils
 
+# my code is here
+from deeplab.utils import hybrid_loss
+
 
 def _div_maybe_zero(total_loss, num_present):
   """Normalizes the total loss with the number of present pixels."""
@@ -41,7 +44,8 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
                                                   gt_is_matting_map=False,
                                                   scope=None,
                                                   # my code is here
-                                                  use_hybrid_loss=False):
+                                                  use_hybrid_loss=False,
+                                                  batch_size=1):
   """Adds softmax cross entropy loss for logits of each scale.
 
   Args:
@@ -114,7 +118,9 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
     logits_not_reshaped = logits        # (?, height, width, 2)
     logits_height = tf.shape(logits_not_reshaped)[1]
     logits_width = tf.shape(logits_not_reshaped)[2]
-    # labels_not_reshaped = scaled_labels # (?, height, width, 1)
+
+    labels_one_hot = tf.one_hot(scaled_labels, num_classes, on_value=1.0, off_value=0.0)
+    labels_not_reshaped = tf.squeeze(labels_one_hot, axis=3)
 
     scaled_labels = tf.reshape(scaled_labels, shape=[-1])
     weights = utils.get_label_weight_mask(
@@ -146,9 +152,9 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
       train_labels = tf.one_hot(
           scaled_labels, num_classes, on_value=1.0, off_value=0.0)
       # my code is here
-      labels_not_reshaped = tf.reshape(
-                                train_labels,
-                                shape=[-1, logits_height, logits_width, num_classes])
+      # labels_not_reshaped = tf.reshape(
+      #                           train_labels,
+      #                           shape=[-1, logits_height, logits_width, num_classes])
     
     default_loss_scope = ('softmax_all_pixel_loss'
                           if top_k_percent_pixels == 1.0 else
@@ -171,22 +177,44 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
 
       # my code is here -------------------
       else:
-        # boundary-aware hybrid-loss: BCE + SSIM + IOU losses
+        # boundary-aware hybrid-loss: BCE + SSIM + IoU losses
         tf.logging.info('Using Boundary-aware Hybrid-loss.')
         bce_losses = tf.nn.sigmoid_cross_entropy_with_logits(
-            labels=tf.stop_gradient(
-                train_labels, name='train_labels_stop_gradient'),
+            labels=train_labels,
             logits=logits,
-            name='pixel_losses')
+            name='bce_losses')
+        bce_losses = tf.reduce_mean(bce_losses)
+        bce_losses = tf.expand_dims(bce_losses, axis=0)
+        bce_losses = tf.expand_dims(bce_losses, axis=-1)
 
-        ssim_losses = tf.image.ssim(
-            img1=logits_not_reshaped, img2=labels_not_reshaped,
-            max_val=1.0, filter_size=11, filter_sigma=1.5, k1=0.01, k2=0.03)
+        print('##########################')
+        print('##########################')
+        print('##########################')
+        print(bce_losses)
+
+        # ssim_losses = tf.image.ssim(
+        #     img1=logits_not_reshaped, img2=labels_not_reshaped,
+        #     max_val=1.0, filter_size=11, filter_sigma=1.5, k1=0.01, k2=0.03)
+        loss_ssim = hybrid_loss.SSIM(k1=0.01, k2=0.03, window_size=11)
+        ssim_losses = loss_ssim.ssim_loss(logits_not_reshaped, labels_not_reshaped)
+        ssim_losses = tf.expand_dims(ssim_losses, axis=0)
+        ssim_losses = tf.expand_dims(ssim_losses, axis=-1)
+
+        print('##########################')
+        print('##########################')
+        print('##########################')
+        print(ssim_losses)
         
-        # iou_losses = iou_loss(logits_not_reshaped, labels_not_reshaped)
+        iou_losses = hybrid_loss.iou_loss(logits_not_reshaped, labels_not_reshaped, batch_size)
+        iou_losses = tf.expand_dims(iou_losses, axis=0)
+        iou_losses = tf.expand_dims(iou_losses, axis=-1)
 
-        # pixel_losses = bce_losses + ssim_losses + iou_losses
-        pixel_losses = bce_losses + ssim_losses
+        print('##########################')
+        print('##########################')
+        print('##########################')
+        print(iou_losses)
+
+        pixel_losses = bce_losses + ssim_losses + iou_losses
       # -----------------------------------
         
       # weighted_pixel_losses = tf.multiply(pixel_losses, weights)
@@ -218,23 +246,6 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
             tf.to_float(tf.not_equal(top_k_losses, 0.0)))
         loss = _div_maybe_zero(total_loss, num_present)
         tf.losses.add_loss(loss)
-
-
-# my code is here -------------------
-def iou_loss(pred, target):
-    batch_size = pred.get_shape()[0]
-    IoU = 0.0
-
-    for i in range(0, batch_size):
-        # compute the IoU of the foreground
-        Iand1 = tf.reduce_sum(target[i, :, :, :] * pred[i, :, :, :])
-        Ior1  = tf.reduce_sum(target[i, :, :, :]) + tf.reduce_sum(pred[i, :, :, :]) - Iand1
-        IoU1  = Iand1 / Ior1
-
-        IoU = IoU + (1 - IoU1)
-
-    return IoU / tf.constant(batch_size, dtype=tf.float32)
-# -----------------------------------
 
 
 def get_model_init_fn(train_logdir,

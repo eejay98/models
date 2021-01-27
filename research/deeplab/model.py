@@ -339,9 +339,23 @@ def multi_scale_logits(images,
 
     # Resize the logits to have the same dimension before merging.
     for output in sorted(outputs_to_logits):
-      outputs_to_logits[output] = _resize_bilinear(
-          outputs_to_logits[output], [logits_height, logits_width],
-          outputs_to_logits[output].dtype)
+      if not model_options.use_rrm:
+        outputs_to_logits[output] = _resize_bilinear(
+            outputs_to_logits[output], [logits_height, logits_width],
+            outputs_to_logits[output].dtype)
+      # my code is here
+      else:
+        outputs_to_logits[output] = _resize_bilinear(
+            outputs_to_logits[output],
+            tf.convert_to_tensor(model_options.crop_size, dtype=tf.int32),
+            outputs_to_logits[output].dtype)
+        
+    # my code is here
+    if model_options.use_rrm:
+      for output in sorted(outputs_to_logits):
+        outputs_to_logits[output] = residual_refinement_module(
+            features=outputs_to_logits[output],
+            num_classes=model_options.outputs_to_num_classes['semantic'])
 
     # Return when only one input scale.
     if len(image_pyramid) == 1:
@@ -611,15 +625,15 @@ def _get_logits(images,
         fine_tune_batch_norm=fine_tune_batch_norm,
         use_bounded_activation=model_options.use_bounded_activation)
 
-    # my code is here
-    if model_options.use_rrm:
-      features = _resize_bilinear(
-                    features,
-                    tf.convert_to_tensor(crop_size, dtype=tf.int32))
+    # # my code is here
+    # if model_options.use_rrm:
+    #   features = _resize_bilinear(
+    #                 features,
+    #                 tf.convert_to_tensor(crop_size, dtype=tf.int32))
 
-      features = residual_refinement_module(
-                    features=features,
-                    num_classes=model_options.outputs_to_num_classes['semantic'])
+    #   features = residual_refinement_module(
+    #                 features=features,
+    #                 num_classes=model_options.outputs_to_num_classes['semantic'])
 
   outputs_to_logits = {}
 

@@ -34,7 +34,7 @@ from deployment import model_deploy
 # my code is here
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 slim = tf.contrib.slim
 flags = tf.app.flags
@@ -282,7 +282,8 @@ def _build_deeplab(iterator, outputs_to_num_classes, ignore_label):
         top_k_percent_pixels=FLAGS.top_k_percent_pixels,
         scope=output,
         # my code is here
-        use_hybrid_loss=FLAGS.use_hybrid_loss)
+        use_hybrid_loss=FLAGS.use_hybrid_loss,
+        batch_size=FLAGS.train_batch_size // FLAGS.num_clones)
 
 
 def main(unused_argv):

@@ -106,7 +106,7 @@ _DUTS_INFORMATION = DatasetDescriptor(
         'train_aug': 21106, # including horizontal-flipped data
         'val': 5019,
     },
-    num_classes=2,
+    num_classes=1,
     ignore_label=255,
 )
 
