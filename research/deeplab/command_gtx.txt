@@ -13,11 +13,11 @@ python deeplab/train.py \
   --output_stride=16 \
   --decoder_output_stride=8 \
   --train_crop_size=256,256 \
-  --train_batch_size=1 \
+  --train_batch_size=4 \
   --num_clones=1 \
-  --training_number_of_steps="10000" \
+  --training_number_of_steps="200000" \
   --fine_tune_batch_norm=false \
-  --train_logdir="/home/eejay/models/research/deeplab/experiment/DUTS/train/train_duts_0126_pretrained_only_backbone_BCE_SSIM" \
+  --train_logdir="/home/eejay/models/research/deeplab/experiment/DUTS/train/train_duts_0128_pretrained_only_backbone_hybrid" \
   --dataset_dir="/home/eejay/models/research/deeplab/datasets/DUTS/DUTS_TR_hflip_TFRecords" \
   --tf_initial_checkpoint="/home/eejay/models/research/deeplab/pretrained/deeplabv3_pascal_trainval/model.ckpt.index" \
   --initialize_last_layer=false \
@@ -26,7 +26,7 @@ python deeplab/train.py \
   --use_hybrid_loss=true \
   --use_rrm=false \
   --optimizer="adam" \
-  --adam_learning_rate=0.0001 \
+  --adam_learning_rate=0.00001 \
   --is_salient=true \
   --dataset="duts"
 
@@ -65,12 +65,13 @@ python deeplab/vis.py \
   --atrous_rates=18 \
   --output_stride=16 \
   --decoder_output_stride=8 \
-  --decoder_output_is_logits=true \
+  --decoder_output_is_logits=false \
   --use_rrm=true \
   --is_salient=true \
   --vis_crop_size=1303,1401 \
-  --checkpoint_dir="/home/eejay/models/research/deeplab/experiment/DUTS/train/train_rrm_duts_0125_pretrained_only_backbone_BCE" \
-  --vis_logdir="/home/eejay/models/research/deeplab/experiment/DUTS/vis/vis_rrm_0125_pretrained_only_backbone_BCE" \
+  --checkpoint_dir="/home/eejay/models/research/deeplab/experiment/DUTS/train/train_rrm_duts_0128_pretrained_only_backbone_BCE" \
+  --vis_logdir="/home/eejay/models/research/deeplab/experiment/DUTS/vis/vis_rrm_0128_pretrained_only_backbone_BCE" \
   --dataset_dir="/home/eejay/models/research/deeplab/datasets/DUTS/DUTS_TE_TFRecords" \
   --max_number_of_iterations=1 \
-  --dataset="duts"
+  --dataset="duts" \
+  --colormap_type="ade20k"

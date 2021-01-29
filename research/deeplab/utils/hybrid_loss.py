@@ -6,8 +6,8 @@ def iou_loss(img1, img2, batch_size):
   IoU = 0.0
 
   for i in range(0, batch_size):
-    Iand1 = tf.reduce_sum(img1[i, :, :, :] * img2[i, :, :, :])
-    Ior1  = tf.reduce_sum(img1[i, :, :, :]) + tf.reduce_sum(img2[i, :, :, :]) - Iand1
+    Iand1 = tf.reduce_sum(img1[i, :, :, 1] * img2[i, :, :, 1])
+    Ior1  = tf.reduce_sum(img1[i, :, :, 1]) + tf.reduce_sum(img2[i, :, :, 1]) - Iand1
     IoU1  = Iand1 / Ior1
     IoU = IoU + (1 - IoU1)
 
@@ -38,6 +38,12 @@ class SSIM(object):
 
   def ssim_loss(self, img1, img2):
     window = self.gaussian(window_size=self.window_size)
+    img1 = img1[:, :, :, 1]
+    img2 = img2[:, :, :, 1]
+
+    img1 = tf.expand_dims(img1, axis=-1)
+    img2 = tf.expand_dims(img2, axis=-1)
+
     (_, _, _, channel) = img1.shape.as_list()
 
     window = tf.tile(window, [1, 1, channel, 1])
@@ -60,5 +66,7 @@ class SSIM(object):
     c2 = (self.k2)**2
 
     ssim_map = ((2*mu1_mu2 + c1)*(2*sigma1_2 + c2)) / ((mu1_mu1 + mu2_mu2 + c1)*(sigma1_1 + sigma2_2 + c2))
+    ssim_map = tf.reduce_mean(ssim_map)
 
-    return tf.subtract(tf.constant(1.0, tf.float32), tf.reduce_mean(ssim_map))
+    return (1 - ssim_map)
+

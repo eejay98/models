@@ -183,36 +183,15 @@ def add_softmax_cross_entropy_loss_for_each_scale(scales_to_logits,
             labels=train_labels,
             logits=logits,
             name='bce_losses')
-        bce_losses = tf.reduce_mean(bce_losses)
-        bce_losses = tf.expand_dims(bce_losses, axis=0)
-        bce_losses = tf.expand_dims(bce_losses, axis=-1)
+        bce_losses = tf.reduce_sum(bce_losses)
+        bce_losses = tf.reshape(bce_losses, shape=[-1])
 
-        print('##########################')
-        print('##########################')
-        print('##########################')
-        print(bce_losses)
-
-        # ssim_losses = tf.image.ssim(
-        #     img1=logits_not_reshaped, img2=labels_not_reshaped,
-        #     max_val=1.0, filter_size=11, filter_sigma=1.5, k1=0.01, k2=0.03)
         loss_ssim = hybrid_loss.SSIM(k1=0.01, k2=0.03, window_size=11)
         ssim_losses = loss_ssim.ssim_loss(logits_not_reshaped, labels_not_reshaped)
-        ssim_losses = tf.expand_dims(ssim_losses, axis=0)
-        ssim_losses = tf.expand_dims(ssim_losses, axis=-1)
-
-        print('##########################')
-        print('##########################')
-        print('##########################')
-        print(ssim_losses)
+        ssim_losses = tf.reshape(ssim_losses, shape=[-1])
         
         iou_losses = hybrid_loss.iou_loss(logits_not_reshaped, labels_not_reshaped, batch_size)
-        iou_losses = tf.expand_dims(iou_losses, axis=0)
-        iou_losses = tf.expand_dims(iou_losses, axis=-1)
-
-        print('##########################')
-        print('##########################')
-        print('##########################')
-        print(iou_losses)
+        iou_losses = tf.reshape(iou_losses, shape=[-1])
 
         pixel_losses = bce_losses + ssim_losses + iou_losses
       # -----------------------------------
