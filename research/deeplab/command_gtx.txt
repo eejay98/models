@@ -13,13 +13,13 @@ python deeplab/train.py \
   --output_stride=16 \
   --decoder_output_stride=8 \
   --train_crop_size=256,256 \
-  --train_batch_size=4 \
-  --num_clones=1 \
+  --train_batch_size=16 \
+  --num_clones=4 \
   --training_number_of_steps="200000" \
   --fine_tune_batch_norm=false \
   --train_logdir="/home/eejay/models/research/deeplab/experiment/DUTS/train/train_duts_0128_pretrained_only_backbone_hybrid" \
   --dataset_dir="/home/eejay/models/research/deeplab/datasets/DUTS/DUTS_TR_hflip_TFRecords" \
-  --tf_initial_checkpoint="/home/eejay/models/research/deeplab/pretrained/deeplabv3_pascal_trainval/model.ckpt.index" \
+  --tf_initial_checkpoint="/home/eejay/models/research/deeplab/pretrained/xception_imagenet" \
   --initialize_last_layer=false \
   --last_layers_contain_logits_only=false \
   --decoder_output_is_logits=false \
