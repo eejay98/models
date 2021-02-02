@@ -34,7 +34,7 @@ from deployment import model_deploy
 # my code is here
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1, 2, 3, 4, 5, 6"
 
 slim = tf.contrib.slim
 flags = tf.app.flags
@@ -92,7 +92,7 @@ flags.DEFINE_enum('optimizer', 'momentum', ['momentum', 'adam'],
 
 # Momentum optimizer flags
 
-flags.DEFINE_enum('learning_policy', 'poly', ['poly', 'step'],
+flags.DEFINE_enum('learning_policy', 'poly', ['poly', 'step', 'multi_steps'],
                   'Learning rate policy for training.')
 
 # Use 0.007 when training on PASCAL augmented training set, train_aug. When
@@ -119,6 +119,13 @@ flags.DEFINE_integer('training_number_of_steps', 30000,
                      'The number of steps used for training')
 
 flags.DEFINE_float('momentum', 0.9, 'The momentum value to use')
+
+# my code is here
+flags.DEFINE_list('boundaries', '100000',
+                  'the steps where the learning rate changes')
+
+flags.DEFINE_list('boundary_learning_rates', '0.001, 0.0001',
+                  'the list of learning rate changing piecewise constant in boundaries')
 
 # Adam optimizer flags
 flags.DEFINE_float('adam_learning_rate', 0.001,
@@ -390,7 +397,10 @@ def main(unused_argv):
           FLAGS.slow_start_step,
           FLAGS.slow_start_learning_rate,
           decay_steps=FLAGS.decay_steps,
-          end_learning_rate=FLAGS.end_learning_rate)
+          end_learning_rate=FLAGS.end_learning_rate,
+          # my code is here
+          boundaries=[int(bd) for bd in FLAGS.boundaries],
+          boundary_learning_rates=[float(rates) for rates in FLAGS.boundary_learning_rates])
 
       summaries.add(tf.summary.scalar('learning_rate', learning_rate))
 
@@ -447,7 +457,7 @@ def main(unused_argv):
       
     # my code is here
     # allocate the fraction of GPU memory
-    session_config.gpu_options.per_process_gpu_memory_fraction = 0.4
+    # session_config.gpu_options.per_process_gpu_memory_fraction = 0.4
 
     # Start the training.
     profile_dir = FLAGS.profile_logdir

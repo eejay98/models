@@ -1,8 +1,35 @@
 # Running the train/eval/vis jobs
-
 # From tensorflow/models/research/
 
 # RRM -> remove the checkpoint
+python deeplab/train.py \
+  --logtostderr \
+  --train_split="train_aug" \
+  --model_variant="xception_65" \
+  --atrous_rates=6 \
+  --atrous_rates=12 \
+  --atrous_rates=18 \
+  --output_stride=16 \
+  --decoder_output_stride=8 \
+  --train_crop_size=256,256 \
+  --train_batch_size=56 \
+  --num_clones=7 \
+  --training_number_of_steps="40000" \
+  --fine_tune_batch_norm=true \
+  --train_logdir="/home/eejay/models/research/deeplab/experiment/DUTS/train/0203_rrm_xception65_imagenet_pretrained_piecewise" \
+  --dataset_dir="/home/eejay/models/research/deeplab/datasets/DUTS/DUTS_TR_hflip_TFRecords" \
+  --tf_initial_checkpoint="/home/eejay/models/research/deeplab/pretrained/xception_imagenet/model.ckpt" \
+  --use_hybrid_loss=false \
+  --use_rrm=true \
+  --is_salient=true \
+  --dataset="duts" \
+  --base_learning_rate=0.001 \
+  --learning_policy="multi_steps" \
+  --boundaries=1000,2000 \
+  --boundary_learning_rates=0.001,0.0001,0.00001
+
+
+// former command
 python deeplab/train.py \
   --logtostderr \
   --train_split="train_aug" \
@@ -65,12 +92,11 @@ python deeplab/vis.py \
   --atrous_rates=18 \
   --output_stride=16 \
   --decoder_output_stride=8 \
-  --decoder_output_is_logits=false \
-  --use_rrm=true \
+  --use_rrm=false \
   --is_salient=true \
   --vis_crop_size=1303,1401 \
-  --checkpoint_dir="/home/eejay/models/research/deeplab/experiment/DUTS/train/train_rrm_duts_0128_pretrained_only_backbone_BCE" \
-  --vis_logdir="/home/eejay/models/research/deeplab/experiment/DUTS/vis/vis_rrm_0128_pretrained_only_backbone_BCE" \
+  --checkpoint_dir="/home/eejay/models/research/deeplab/experiment/DUTS/train/0202_baseline_xception65_imagenet_pretrained" \
+  --vis_logdir="/home/eejay/models/research/deeplab/experiment/DUTS/vis/0202_baseline_xception65_imagenet_pretrained" \
   --dataset_dir="/home/eejay/models/research/deeplab/datasets/DUTS/DUTS_TE_TFRecords" \
   --max_number_of_iterations=1 \
   --dataset="duts" \
