@@ -214,7 +214,10 @@ def predict_labels(images, model_options, image_pyramid=None):
       logits = _resize_bilinear(logits,
                                 tf.shape(images)[1:3],
                                 scales_to_logits[MERGED_LOGITS_SCOPE].dtype)
-      predictions[output] = tf.argmax(logits, 3)
+      # predictions[output] = tf.argmax(logits, 3)
+      # predictions[output + PROB_SUFFIX] = tf.nn.softmax(logits)
+      # my code is here
+      predictions[output] = tf.nn.softmax(logits)
       predictions[output + PROB_SUFFIX] = tf.nn.softmax(logits)
     else:
       argmax_results = tf.argmax(logits, 3)

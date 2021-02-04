@@ -50,7 +50,9 @@ def save_annotation(label,
     colored_label = get_dataset_colormap.label_to_color_image(
         label, colormap_type)
   else:
-    colored_label = label
+    # colored_label = label
+    # my code is here
+    colored_label = label[:, :, 1]
     if normalize_to_unit_values:
       min_value = np.amin(colored_label)
       max_value = np.amax(colored_label)
