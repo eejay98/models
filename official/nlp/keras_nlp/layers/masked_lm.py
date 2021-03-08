@@ -94,12 +94,12 @@ class MaskedLM(tf.keras.layers.Layer):
                               'it has variable sharing logic.')
 
   def _gather_indexes(self, sequence_tensor, positions):
-    """Gathers the vectors at the specific positions.
+    """Gathers the vectors at the specific positions, for performance.
 
     Args:
-        sequence_tensor: Sequence output of `BertModel` layer of shape
+        sequence_tensor: Sequence output of shape
           (`batch_size`, `seq_length`, num_hidden) where num_hidden is number of
-          hidden units of `BertModel` layer.
+          hidden units.
         positions: Positions ids of tokens in sequence to mask for pretraining
           of with dimension (batch_size, num_predictions) where
           `num_predictions` is maximum number of tokens to mask out and predict

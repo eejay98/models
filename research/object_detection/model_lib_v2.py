@@ -99,6 +99,10 @@ def _compute_losses_and_predictions_dicts(
           k-hot tensor of classes.
         labels[fields.InputDataFields.groundtruth_track_ids] is a int32
           tensor of track IDs.
+        labels[fields.InputDataFields.groundtruth_keypoint_depths] is a
+          float32 tensor containing keypoint depths information.
+        labels[fields.InputDataFields.groundtruth_keypoint_depth_weights] is a
+          float32 tensor containing the weights of the keypoint depth feature.
     add_regularization_loss: Whether or not to include the model's
       regularization loss in the losses dictionary.
 
@@ -213,6 +217,10 @@ def eager_train_step(detection_model,
           k-hot tensor of classes.
         labels[fields.InputDataFields.groundtruth_track_ids] is a int32
           tensor of track IDs.
+        labels[fields.InputDataFields.groundtruth_keypoint_depths] is a
+          float32 tensor containing keypoint depths information.
+        labels[fields.InputDataFields.groundtruth_keypoint_depth_weights] is a
+          float32 tensor containing the weights of the keypoint depth feature.
     unpad_groundtruth_tensors: A parameter passed to unstack_batch.
     optimizer: The training optimizer that will update the variables.
     learning_rate: The learning rate tensor for the current training step.
@@ -506,6 +514,13 @@ def train_loop(
   with strategy.scope():
     detection_model = MODEL_BUILD_UTIL_MAP['detection_model_fn_base'](
         model_config=model_config, is_training=True)
+    # We run the detection_model on dummy inputs in order to ensure that the
+    # model and all its variables have been properly constructed. Specifically,
+    # this is currently necessary prior to (potentially) creating shadow copies
+    # of the model variables for the EMA optimizer.
+    dummy_image, dummy_shapes = detection_model.preprocess(
+        tf.zeros([1, 512, 512, 3], dtype=tf.float32))
+    dummy_prediction_dict = detection_model.predict(dummy_image, dummy_shapes)
 
     def train_dataset_fn(input_context):
       """Callable to create train input."""
@@ -528,6 +543,8 @@ def train_loop(
         aggregation=tf.compat.v2.VariableAggregation.ONLY_FIRST_REPLICA)
     optimizer, (learning_rate,) = optimizer_builder.build(
         train_config.optimizer, global_step=global_step)
+    if train_config.optimizer.use_moving_average:
+      optimizer.shadow_copy(detection_model)
 
     if callable(learning_rate):
       learning_rate_fn = learning_rate
@@ -778,7 +795,8 @@ def eager_eval_loop(
     eval_dataset,
     use_tpu=False,
     postprocess_on_cpu=False,
-    global_step=None):
+    global_step=None,
+    ):
   """Evaluate the model eagerly on the evaluation dataset.
 
   This method will compute the evaluation metrics specified in the configs on
@@ -951,11 +969,10 @@ def eager_eval_loop(
     eval_metrics[loss_key] = tf.reduce_mean(loss_metrics[loss_key])
 
   eval_metrics = {str(k): v for k, v in eval_metrics.items()}
-  tf.logging.info('Eval metrics at step %d', global_step)
+  tf.logging.info('Eval metrics at step %d', global_step.numpy())
   for k in eval_metrics:
     tf.compat.v2.summary.scalar(k, eval_metrics[k], step=global_step)
     tf.logging.info('\t+ %s: %f', k, eval_metrics[k])
-
   return eval_metrics
 
 
@@ -1009,6 +1026,8 @@ def eval_continuously(
   """
   get_configs_from_pipeline_file = MODEL_BUILD_UTIL_MAP[
       'get_configs_from_pipeline_file']
+  create_pipeline_proto_from_configs = MODEL_BUILD_UTIL_MAP[
+      'create_pipeline_proto_from_configs']
   merge_external_params_with_configs = MODEL_BUILD_UTIL_MAP[
       'merge_external_params_with_configs']
 
@@ -1026,6 +1045,10 @@ def eval_continuously(
         'Forced number of epochs for all eval validations to be 1.')
   configs = merge_external_params_with_configs(
       configs, None, kwargs_dict=kwargs)
+  if model_dir:
+    pipeline_config_final = create_pipeline_proto_from_configs(configs)
+    config_util.save_pipeline_config(pipeline_config_final, model_dir)
+
   model_config = configs['model']
   train_input_config = configs['train_input_config']
   eval_config = configs['eval_config']
@@ -1049,6 +1072,13 @@ def eval_continuously(
   with strategy.scope():
     detection_model = MODEL_BUILD_UTIL_MAP['detection_model_fn_base'](
         model_config=model_config, is_training=True)
+    # We run the detection_model on dummy inputs in order to ensure that the
+    # model and all its variables have been properly constructed. Specifically,
+    # this is currently necessary prior to (potentially) creating shadow copies
+    # of the model variables for the EMA optimizer.
+    dummy_image, dummy_shapes = detection_model.preprocess(
+        tf.zeros([1, 512, 512, 3], dtype=tf.float32))
+    dummy_prediction_dict = detection_model.predict(dummy_image, dummy_shapes)
 
   eval_input = strategy.experimental_distribute_dataset(
       inputs.eval_input(
@@ -1060,12 +1090,21 @@ def eval_continuously(
   global_step = tf.compat.v2.Variable(
       0, trainable=False, dtype=tf.compat.v2.dtypes.int64)
 
+  optimizer, _ = optimizer_builder.build(
+      configs['train_config'].optimizer, global_step=global_step)
+
   for latest_checkpoint in tf.train.checkpoints_iterator(
       checkpoint_dir, timeout=timeout, min_interval_secs=wait_interval):
     ckpt = tf.compat.v2.train.Checkpoint(
-        step=global_step, model=detection_model)
+        step=global_step, model=detection_model, optimizer=optimizer)
+
+    if eval_config.use_moving_averages:
+      optimizer.shadow_copy(detection_model)
 
     ckpt.restore(latest_checkpoint).expect_partial()
+
+    if eval_config.use_moving_averages:
+      optimizer.swap_weights()
 
     summary_writer = tf.compat.v2.summary.create_file_writer(
         os.path.join(model_dir, 'eval', eval_input_config.name))
@@ -1076,4 +1115,5 @@ def eval_continuously(
           eval_input,
           use_tpu=use_tpu,
           postprocess_on_cpu=postprocess_on_cpu,
-          global_step=global_step)
+          global_step=global_step,
+          )

@@ -45,6 +45,7 @@ class BertEncoderConfig(hyperparams.Config):
   type_vocab_size: int = 2
   initializer_range: float = 0.02
   embedding_size: Optional[int] = None
+  output_range: Optional[int] = None
   return_all_encoder_outputs: bool = False
 
 
@@ -101,6 +102,7 @@ class MobileBertEncoderConfig(hyperparams.Config):
   num_feedforward_networks: int = 1
   normalization_type: str = "layer_norm"
   classifier_activation: bool = True
+  input_mask_dtype: str = "int32"
 
 
 @dataclasses.dataclass
@@ -136,7 +138,7 @@ class BigBirdEncoderConfig(hyperparams.Config):
   block_size: int = 64
   type_vocab_size: int = 16
   initializer_range: float = 0.02
-  embedding_size: Optional[int] = None
+  embedding_width: Optional[int] = None
 
 
 @dataclasses.dataclass
@@ -259,7 +261,8 @@ def build_encoder(config: EncoderConfig,
         key_query_shared_bottleneck=encoder_cfg.key_query_shared_bottleneck,
         num_feedforward_networks=encoder_cfg.num_feedforward_networks,
         normalization_type=encoder_cfg.normalization_type,
-        classifier_activation=encoder_cfg.classifier_activation)
+        classifier_activation=encoder_cfg.classifier_activation,
+        input_mask_dtype=encoder_cfg.input_mask_dtype)
 
   if encoder_type == "albert":
     return encoder_cls(
@@ -290,11 +293,11 @@ def build_encoder(config: EncoderConfig,
         attention_dropout_rate=encoder_cfg.attention_dropout_rate,
         num_rand_blocks=encoder_cfg.num_rand_blocks,
         block_size=encoder_cfg.block_size,
-        max_sequence_length=encoder_cfg.max_position_embeddings,
+        max_position_embeddings=encoder_cfg.max_position_embeddings,
         type_vocab_size=encoder_cfg.type_vocab_size,
         initializer=tf.keras.initializers.TruncatedNormal(
             stddev=encoder_cfg.initializer_range),
-        embedding_width=encoder_cfg.embedding_size)
+        embedding_width=encoder_cfg.embedding_width)
 
   if encoder_type == "xlnet":
     return encoder_cls(
@@ -334,6 +337,7 @@ def build_encoder(config: EncoderConfig,
       type_vocab_size=encoder_cfg.type_vocab_size,
       initializer=tf.keras.initializers.TruncatedNormal(
           stddev=encoder_cfg.initializer_range),
+      output_range=encoder_cfg.output_range,
       embedding_width=encoder_cfg.embedding_size,
       embedding_layer=embedding_layer,
       return_all_encoder_outputs=encoder_cfg.return_all_encoder_outputs,
